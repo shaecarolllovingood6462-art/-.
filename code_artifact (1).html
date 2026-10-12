@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>어휘맨틀 - 단어 형성의 원리 탐구 게임</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for educational icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  <!-- Google Fonts (Pretendard & Noto Sans KR) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=Noto+Serif+KR:wght@600;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Pretendard', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+            serif: ['Noto Serif KR', 'serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              800: '#3730a3',
+            },
+            single: '#10b981',   /* 단일어 (초록) */
+            compound: '#3b82f6', /* 합성어 (파랑) */
+            derivative: '#f59e0b'/* 파생어 (주황) */
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Pretendard', sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.05);
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.3);
+      border-radius: 9999px;
+    }
+    @keyframes pulse-subtle {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.02); }
+    }
+    .animate-pulse-subtle {
+      animation: pulse-subtle 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <header class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all">
+    <div class="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="switchTab('game')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 flex items-center justify-center text-white shadow-md shadow-indigo-200">
+          <i class="fa-solid fa-puzzle-piece text-xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">어휘맨틀 <span class="text-indigo-600 font-extrabold text-sm px-2 py-0.5 bg-indigo-50 rounded-full border border-indigo-200">단어 형성의 원리</span></h1>
+          </div>
+          <p class="text-xs text-slate-500">단어 유사도와 형태소 구조를 추리하는 국어 수업 퍼즐</p>
+        </div>
+      </div>
+
+      <!-- Navigation buttons -->
+      <div class="flex items-center space-x-2">
+        <button onclick="openRuleModal()" class="px-3 py-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 text-sm font-medium transition flex items-center gap-1.5">
+          <i class="fa-regular fa-circle-question text-indigo-500"></i>
+          <span>규칙·학습안내</span>
+        </button>
+
+        <button onclick="toggleTeacherMode()" id="teacherModeBtn" class="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-medium transition shadow-sm flex items-center gap-2">
+          <i class="fa-solid fa-chalkboard-user text-amber-400"></i>
+          <span>선생님 설정실</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 py-6 flex flex-col">
+    
+    <!-- Teacher Management Panel (Collapsible) -->
+    <div id="teacherPanel" class="hidden mb-6 bg-gradient-to-br from-slate-900 to-indigo-950 text-white rounded-2xl p-6 shadow-xl border border-indigo-900/50 transition-all">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-700/80">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40">교사용 제어판</span>
+            <h2 class="text-lg font-bold">수업용 오늘의 정답 설정 및 문제 관리</h2>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">수업 시간 다룰 목표 어휘(단일어·합성어·파생어)를 직접 지정하거나 예시 세트에서 골라 학생들에게 공유하세요.</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="copyStudentLink()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs rounded-xl font-semibold transition flex items-center gap-1.5 shadow">
+            <i class="fa-solid fa-share-nodes"></i>
+            <span>학생 배포용 URL 복사</span>
+          </button>
+          <button onclick="toggleTeacherMode()" class="px-2.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs rounded-xl transition">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Presets and Custom Inputs Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-5 mt-5">
+        <!-- Preset quick selection -->
+        <div class="md:col-span-5 bg-slate-800/50 p-4 rounded-xl border border-slate-700/60">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+              <i class="fa-solid fa-list-check text-indigo-400"></i>
+              <span>추천 교육용 단어 세트</span>
+            </span>
+            <span class="text-[11px] text-slate-400">클릭 즉시 적용</span>
+          </div>
+          <div id="presetButtonsContainer" class="space-y-1.5 max-h-56 overflow-y-auto custom-scroll pr-1">
+            <!-- Dynamically populated by renderPresets() -->
+          </div>
+        </div>
+
+        <!-- Custom Word Creation -->
+        <div class="md:col-span-7 bg-slate-800/50 p-4 rounded-xl border border-slate-700/60 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                <i class="fa-solid fa-pen-to-square text-amber-400"></i>
+                <span>선생님 맞춤형 정답 출제</span>
+              </span>
+              <span class="text-[11px] text-amber-300">현재 단어: <strong id="currentWordBadge" class="underline decoration-amber-400">풋사과</strong></span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">정답 단어 (필수)</label>
+                <input type="text" id="cfgWord" value="풋사과" placeholder="예: 돌다리" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">단어 형성 유형 (필수)</label>
+                <select id="cfgType" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500 font-bold">
+                  <option value="단일어">단일어</option>
+                  <option value="합성어">합성어</option>
+                  <option value="파생어" selected>파생어</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-2 mb-4">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">형태소 구조 분석</label>
+                <input type="text" id="cfgMorpheme" value="풋-(접두사: 덜 익은) + 사과(어근)" placeholder="예: 돌(어근) + 다리(어근)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">사전적 의미 및 수업 해설</label>
+                <input type="text" id="cfgMeaning" value="아직 덜 익은 푸른 사과" placeholder="예: 돌을 놓아 건너다닐 수 있게 만든 다리" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-2 border-t border-slate-700/60">
+            <button onclick="applyCustomWord()" class="w-full py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg transition flex items-center justify-center gap-1.5 shadow">
+              <i class="fa-solid fa-check"></i>
+              <span>이 단어로 문제 출제하기</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rule and Instruction Modal -->
+    <div id="ruleModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto custom-scroll">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">
+              <i class="fa-solid fa-book-open"></i>
+            </span>
+            <h3 class="text-lg font-bold text-slate-900">어휘맨틀 수업 규칙 및 학습 개념</h3>
+          </div>
+          <button onclick="closeRuleModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <div class="py-4 space-y-4 text-xs text-slate-600 leading-relaxed">
+          <div class="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
+            <h4 class="font-bold text-indigo-950 text-sm mb-1">🎮 게임 방법 (꼬맨틀 원리)</h4>
+            <ul class="list-disc list-inside space-y-1 text-slate-700">
+              <li>정답 단어의 글자 수가 아닌, <strong>문맥적·의미적 유사도</strong>를 추론합니다.</li>
+              <li>유사도는 0점에서 100점까지 계산되며, <strong>점수가 높을수록 정답과 가까운 의미</strong>입니다.</li>
+              <li>유사도가 매우 높은 상위 단어들은 <strong>순위(Top 1~1000위)</strong>가 표시됩니다.</li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 class="font-bold text-slate-900 text-sm mb-2">📚 핵심 문법 개념: 단어 형성의 원리</h4>
+            <div class="space-y-2">
+              <!-- 단일어 -->
+              <div class="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200">
+                <span class="inline-block px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px] mb-1">단일어</span>
+                <p class="font-semibold text-emerald-950">하나의 어근(실질 형태소)만으로 이루어진 단어</p>
+                <p class="text-emerald-800 text-[11px] mt-0.5">예시: 나무, 하늘, 바다, 구름, 사람, 길, 집</p>
+              </div>
+              <!-- 합성어 -->
+              <div class="p-3 rounded-xl bg-blue-50/80 border border-blue-200">
+                <span class="inline-block px-2 py-0.5 rounded bg-blue-600 text-white font-bold text-[10px] mb-1">합성어</span>
+                <p class="font-semibold text-blue-950">둘 이상의 어근이 결합하여 이루어진 단어 (어근 + 어근)</p>
+                <p class="text-blue-800 text-[11px] mt-0.5">예시: 돌다리(돌+다리), 밤낮(밤+낮), 눈물(눈+물), 책가방(책+가방)</p>
+              </div>
+              <!-- 파생어 -->
+              <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-200">
+                <span class="inline-block px-2 py-0.5 rounded bg-amber-600 text-white font-bold text-[10px] mb-1">파생어</span>
+                <p class="font-semibold text-amber-950">어근에 접사(접두사 또는 접미사)가 결합하여 이루어진 단어</p>
+                <p class="text-amber-800 text-[11px] mt-0.5">예시: 풋사과(풋-[접두사] + 사과), 멋쟁이(멋 + -쟁이[접미사]), 먹보(먹- + -보)</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-slate-100 p-3 rounded-xl text-slate-600">
+            <p class="font-bold text-slate-800 mb-0.5">💡 수업 활동 팁</p>
+            <p>모든 입력 단어는 <strong>단일어, 합성어, 파생어</strong> 중 하나로 정확하게 분류됩니다. 유사도 점수와 형태소 결합 방식을 비교하며 정답의 형성 원리를 좁혀가 보세요.</p>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex justify-end">
+          <button onclick="closeRuleModal()" class="px-4 py-2 bg-slate-900 text-white font-semibold rounded-xl text-xs hover:bg-slate-800 transition">
+            확인하고 게임하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quiz Status and Header Area -->
+    <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 text-2xl font-bold">
+          #<span id="quizNumber">1</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-base font-bold text-slate-900">오늘의 비밀 단어 맞히기</h2>
+            <span id="statusBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+              <i class="fa-solid fa-spinner animate-spin text-[10px]"></i> 탐색 중
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">단어를 입력하여 <span class="font-semibold text-indigo-600">유사도 점수</span>와 <span class="font-semibold text-emerald-600">단어 형성 구조</span>를 확인하고 정답을 추리해보세요!</p>
+        </div>
+      </div>
+
+      <!-- Quick Stats & Hint button -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+        <div class="text-right px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="text-[11px] text-slate-400">시도 횟수</div>
+          <div class="text-lg font-extrabold text-slate-800 leading-none" id="tryCount">0회</div>
+        </div>
+
+        <div class="text-right px-3 py-1.5 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="text-[11px] text-slate-400">최고 유사도</div>
+          <div class="text-lg font-extrabold text-indigo-600 leading-none" id="maxSim">0.00</div>
+        </div>
+
+        <button onclick="requestHint()" class="px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+          <i class="fa-solid fa-lightbulb text-amber-500"></i>
+          <span>단서 열기 (<span id="hintCountBadge">0/3</span>)</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-6">
+      <form id="guessForm" onsubmit="handleGuess(event)" class="flex flex-col sm:flex-row gap-2.5">
+        <div class="relative flex-1">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+            <i class="fa-solid fa-magnifying-glass"></i>
+          </div>
+          <input 
+            type="text" 
+            id="wordInput" 
+            autocomplete="off"
+            placeholder="추측할 한국어 단어를 입력하세요 (예: 나무, 사과, 밤하늘, 먹보...)" 
+            class="w-full pl-11 pr-4 py-3.5 bg-slate-50 hover:bg-slate-100/70 focus:bg-white border-2 border-slate-200 focus:border-indigo-500 rounded-xl text-base font-semibold text-slate-800 focus:outline-none transition"
+          />
+        </div>
+        <button 
+          type="submit" 
+          id="submitBtn"
+          class="px-7 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold rounded-xl transition shadow-md shadow-indigo-100 flex items-center justify-center gap-2 whitespace-nowrap"
+        >
+          <span>유사도 확인</span>
+          <i class="fa-solid fa-arrow-right text-sm"></i>
+        </button>
+      </form>
+
+      <!-- Feedback / Alert notice area -->
+      <div id="noticeArea" class="hidden mt-3 p-3 rounded-xl text-xs font-medium transition flex items-center gap-2"></div>
+    </div>
+
+    <div id="hintCardContainer" class="hidden mb-6 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 transition-all">
+      <div class="flex items-start justify-between">
+        <div class="flex items-center gap-2 text-amber-900 font-bold text-sm mb-2">
+          <i class="fa-solid fa-graduation-cap text-amber-600 text-base"></i>
+          <span>선생님이 제공한 국어 형태론 힌트 카드</span>
+        </div>
+        <button onclick="closeHintCard()" class="text-amber-500 hover:text-amber-700 text-xs">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div id="hintCardContent" class="space-y-2 text-xs text-amber-950 font-medium">
+        <!-- Hints will appear here -->
+      </div>
+    </div>
+
+    <div class="flex-1 bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex flex-col">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-2">
+        <div class="flex items-center gap-2">
+          <h3 class="font-bold text-slate-900 text-base">단어 추측 기록 및 형태소 분석표</h3>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-semibold" id="tableCount">0건</span>
+        </div>
+        
+        <!-- Filter and Sort options -->
+        <div class="flex items-center gap-2 text-xs">
+          <span class="text-slate-400">정렬:</span>
+          <button onclick="setSortMode('similarity')" id="sortSimBtn" class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold border border-indigo-200">
+            유사도 순
+          </button>
+          <button onclick="setSortMode('recent')" id="sortRecentBtn" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200">
+            최신 순
+          </button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="emptyState" class="py-16 text-center text-slate-400 flex flex-col items-center justify-center">
+        <div class="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300 text-2xl mb-3">
+          <i class="fa-solid fa-spell-check"></i>
+        </div>
+        <p class="text-sm font-semibold text-slate-600">아직 입력한 단어가 없습니다.</p>
+        <p class="text-xs text-slate-400 mt-1 max-w-sm">
+          아무 단어나 떠오르는 대로 입력해보세요! <br/>
+          단어의 의미적 거리감과 함께 <strong>단일어, 합성어, 파생어</strong> 분류 정보가 실시간으로 분석됩니다.
+        </p>
+      </div>
+
+      <!-- Result Table List -->
+      <div id="resultsTableWrapper" class="hidden overflow-x-auto flex-1 mt-3">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-slate-400 font-semibold uppercase tracking-wider">
+              <th class="py-3 px-3 w-14 text-center">순번</th>
+              <th class="py-3 px-4 font-bold text-slate-700">입력 단어</th>
+              <th class="py-3 px-4 min-w-[160px]">유사도 점수</th>
+              <th class="py-3 px-3 text-center">순위/근접도</th>
+              <th class="py-3 px-4 min-w-[140px]">단어 구조 분석</th>
+              <th class="py-3 px-3 text-center">형성 원리 유형</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody" class="divide-y divide-slate-100 font-medium">
+            <!-- Dynamic rows will be rendered here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <div id="ruleModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 max-h-[90vh] overflow-y-auto custom-scroll">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">
+            <i class="fa-solid fa-book-open"></i>
+          </span>
+          <h3 class="text-lg font-bold text-slate-900">어휘맨틀 수업 규칙 및 학습 개념</h3>
+        </div>
+        <button onclick="closeRuleModal()" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="py-4 space-y-4 text-xs text-slate-600 leading-relaxed">
+        <div class="bg-indigo-50/70 p-3.5 rounded-xl border border-indigo-100">
+          <h4 class="font-bold text-indigo-950 text-sm mb-1">🎮 게임 방법 (꼬맨틀 원리)</h4>
+          <ul class="list-disc list-inside space-y-1 text-slate-700">
+            <li>정답 단어의 글자 수가 아닌, <strong>문맥적·의미적 유사도</strong>를 추론합니다.</li>
+            <li>유사도는 0점에서 100점까지 계산되며, <strong>점수가 높을수록 정답과 가까운 의미</strong>입니다.</li>
+            <li>유사도가 매우 높은 상위 단어들은 <strong>순위(Top 1~1000위)</strong>가 표시됩니다.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-slate-900 text-sm mb-2">📚 핵심 문법 개념: 단어 형성의 원리</h4>
+          <div class="space-y-2">
+            <!-- 단일어 -->
+            <div class="p-3 rounded-xl bg-emerald-50/80 border border-emerald-200">
+              <span class="inline-block px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px] mb-1">단일어</span>
+              <p class="font-semibold text-emerald-950">하나의 어근(실질 형태소)만으로 이루어진 단어</p>
+              <p class="text-emerald-800 text-[11px] mt-0.5">예시: 나무, 하늘, 바다, 구름, 사람, 길, 집</p>
+            </div>
+            <!-- 복합어: 합성어 -->
+            <div class="p-3 rounded-xl bg-blue-50/80 border border-blue-200">
+              <span class="inline-block px-2 py-0.5 rounded bg-blue-600 text-white font-bold text-[10px] mb-1">합성어 (복합어)</span>
+              <p class="font-semibold text-blue-950">둘 이상의 어근이 결합하여 이루어진 단어 (어근 + 어근)</p>
+              <p class="text-blue-800 text-[11px] mt-0.5">예시: 돌다리(돌+다리), 밤낮(밤+낮), 눈물(눈+물), 책가방(책+가방)</p>
+            </div>
+            <!-- 복합어: 파생어 -->
+            <div class="p-3 rounded-xl bg-amber-50/80 border border-amber-200">
+              <span class="inline-block px-2 py-0.5 rounded bg-amber-600 text-white font-bold text-[10px] mb-1">파생어 (복합어)</span>
+              <p class="font-semibold text-amber-950">어근에 접사(접두사 또는 접미사)가 붙어 이루어진 단어</p>
+              <p class="text-amber-800 text-[11px] mt-0.5">예시: 풋사과(풋-[접두사] + 사과), 멋쟁이(멋 + -쟁이[접미사]), 먹보(먹- + -보)</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-slate-100 p-3 rounded-xl text-slate-600">
+          <p class="font-bold text-slate-800 mb-0.5">💡 수업 활동 팁</p>
+          <p>학생들이 단어를 입력할 때마다 컴퓨터가 해당 단어의 '형성 원리 유형'을 즉시 분석해줍니다. 유사도 점수와 함께 <span class="font-semibold">어떤 접사나 어근이 결합되었는지</span>를 비교해보며 국어 어휘력을 키울 수 있습니다.</p>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex justify-end">
+        <button onclick="closeRuleModal()" class="px-4 py-2 bg-slate-900 text-white font-semibold rounded-xl text-xs hover:bg-slate-800 transition">
+          확인하고 게임하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="winModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 text-center shadow-2xl border border-slate-100 animate-pulse-subtle">
+      <div class="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl mx-auto mb-4 shadow-inner">
+        🎉
+      </div>
+
+      <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-block mb-2">
+        정답 달성 완료!
+      </span>
+
+      <h3 class="text-2xl font-extrabold text-slate-900 mb-1">축하합니다! 정답을 맞혔습니다!</h3>
+      <p class="text-xs text-slate-500 mb-4">
+        총 <span class="font-bold text-indigo-600" id="winTryCount">0</span>번의 시도 끝에 비밀 단어를 찾았습니다.
+      </p>
+
+      <!-- Educational Analysis Card for the Target Word -->
+      <div class="bg-gradient-to-br from-slate-50 to-indigo-50/40 p-4 rounded-2xl border border-indigo-100 text-left mb-5 space-y-3">
+        <div class="flex items-center justify-between border-b border-indigo-100/60 pb-2">
+          <span class="text-xs font-semibold text-slate-400">정답 단어</span>
+          <span class="text-lg font-black text-indigo-900" id="winWordText">풋사과</span>
+        </div>
+
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-400">단어 형성 유형</span>
+          <span class="text-xs font-bold px-2.5 py-0.5 rounded-full" id="winWordTypeBadge">파생어</span>
+        </div>
+
+        <div class="bg-white p-3 rounded-xl border border-slate-100">
+          <div class="text-[11px] font-bold text-slate-400 uppercase mb-1">형태소 구조 분석</div>
+          <div class="text-xs font-bold text-slate-800" id="winWordMorpheme">풋(접두사) + 사과(어근)</div>
+        </div>
+
+        <div class="bg-white p-3 rounded-xl border border-slate-100">
+          <div class="text-[11px] font-bold text-slate-400 uppercase mb-1">사전적 의미 / 수업 해설</div>
+          <div class="text-xs text-slate-700" id="winWordMeaning">아직 덜 익은 사과. 접두사 '풋-'은 '처음 나온' 또는 '덜 익은'의 뜻을 더합니다.</div>
+        </div>
+      </div>
+
+      <div class="flex gap-2">
+        <button onclick="shareMyRecord()" class="flex-1 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-xl text-xs transition flex items-center justify-center gap-1.5 border border-indigo-200">
+          <i class="fa-regular fa-clipboard"></i>
+          <span>나의 결과 텍스트 복사</span>
+        </button>
+        <button onclick="closeWinModal()" class="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition">
+          기록 검토하기
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /*
+      Comprehensive Korean Morphology & Semantic Database for Word Formation Instruction
+      단어 형성 원리 교육용 내장 어휘 데이터베이스 및 형태소 분석기
+    */
+    const MORPHOLOGY_DICT = {
+      // ===== 1. 단일어 (Single words: single root) =====
+      '하늘': { type: '단일어', structure: '하늘(어근)', meaning: '지구 위로 펼쳐진 무한한 공간' },
+      '바다': { type: '단일어', structure: '바다(어근)', meaning: '지구 표면의 넓은 짠물 구역' },
+      '나무': { type: '단일어', structure: '나무(어근)', meaning: '줄기나 가지가 목질로 된 식물' },
+      '구름': { type: '단일어', structure: '구름(어근)', meaning: '공기 중의 수증기가 뭉쳐 떠 있는 것' },
+      '바람': { type: '단일어', structure: '바람(어근)', meaning: '기압 차이로 일어나는 공기의 흐름' },
+      '사람': { type: '단일어', structure: '사람(어근)', meaning: '생각을 하고 언어를 사용하는 영장류' },
+      '별': { type: '단일어', structure: '별(어근)', meaning: '밤하늘에 빛나는 천체' },
+      '달': { type: '단일어', structure: '달(어근)', meaning: '지구 주위를 도는 위성' },
+      '해': { type: '단일어', structure: '해(어근)', meaning: '태양계의 중심 천체' },
+      '물': { type: '단일어', structure: '물(어근)', meaning: '산소와 수소의 결합물인 투명한 액체' },
+      '불': { type: '단일어', structure: '불(어근)', meaning: '물질이 타면서 내는 빛과 열' },
+      '땅': { type: '단일어', structure: '땅(어근)', meaning: '지구의 겉면' },
+      '꽃': { type: '단일어', structure: '꽃(어근)', meaning: '식물의 생식 기관으로 화려한 꽃잎을 지님' },
+      '풀': { type: '단일어', structure: '풀(어근)', meaning: '목질화되지 않은 부드러운 줄기의 식물' },
+      '길': { type: '단일어', structure: '길(어근)', meaning: '사람이나 차가 다닐 수 있게 닦은 자리' },
+      '집': { type: '단일어', structure: '집(어근)', meaning: '사람이 살기 위해 지은 건물' },
+      '산': { type: '단일어', structure: '산(어근)', meaning: '평지보다 높이 솟아 있는 지형' },
+      '강': { type: '단일어', structure: '강(어근)', meaning: '넓고 길게 흐르는 큰 내' },
+      '비': { type: '단일어', structure: '비(어근)', meaning: '대기 중의 수증기가 엉겨 떨어지는 물방울' },
+      '눈': { type: '단일어', structure: '눈(어근)', meaning: '사물을 보는 시각 기관 또는 대기에서 내리는 얼음 결정' },
+      '감자': { type: '단일어', structure: '감자(어근)', meaning: '가지과의 여러해살이풀 또는 그 덩이줄기' },
+      '고구마': { type: '단일어', structure: '고구마(어근)', meaning: '메꽃과의 한해살이 뿌리채소' },
+      '당근': { type: '단일어', structure: '당근(어근)', meaning: '미나리과의 두해살이 뿌리채소' },
+      '양파': { type: '단일어', structure: '양파(어근)', meaning: '백합과의 두해살이 채소' },
+      '무': { type: '단일어', structure: '무(어근)', meaning: '십자화과의 한두해살이 뿌리채소' },
+      '배추': { type: '단일어', structure: '배추(어근)', meaning: '십자화과의 잎채소' },
+      '사과': { type: '단일어', structure: '사과(어근)', meaning: '사과나무의 둥근 열매' },
+      '배': { type: '단일어', structure: '배(어근)', meaning: '과일 배, 사람의 신체 부위, 또는 타는 배' },
+      '책': { type: '단일어', structure: '책(어근)', meaning: '글이나 그림을 인쇄하여 묶은 물건' },
+      '밥': { type: '단일어', structure: '밥(어근)', meaning: '쌀에 물을 붓고 끓여 익힌 음식' },
+      '손': { type: '단일어', structure: '손(어근)', meaning: '팔 끝에 손가락이 달린 신체 기관' },
+      '발': { type: '단일어', structure: '발(어근)', meaning: '다리 끝에 발가락이 달린 신체 기관' },
+
+      // ===== 2. 합성어 (Compound words: root + root) =====
+      '돌다리': { type: '합성어', structure: '돌(어근) + 다리(어근)', meaning: '돌로 놓은 다리' },
+      '밤낮': { type: '합성어', structure: '밤(어근) + 낮(어근)', meaning: '밤과 낮, 늘 계속해서' },
+      '눈물': { type: '합성어', structure: '눈(어근) + 물(어근)', meaning: '눈에서 나오는 분비액' },
+      '봄비': { type: '합성어', structure: '봄(어근) + 비(어근)', meaning: '봄철에 내리는 비' },
+      '앞뒤': { type: '합성어', structure: '앞(어근) + 뒤(어근)', meaning: '앞과 뒤, 또는 일의 전후' },
+      '손발': { type: '합성어', structure: '손(어근) + 발(어근)', meaning: '손과 발, 함께 일하는 호흡' },
+      '책가방': { type: '합성어', structure: '책(어근) + 가방(어근)', meaning: '책을 넣어 다니는 가방' },
+      '물방울': { type: '합성어', structure: '물(어근) + 방울(어근)', meaning: '방울 모양으로 맺힌 물' },
+      '꽃밭': { type: '합성어', structure: '꽃(어근) + 밭(어근)', meaning: '꽃을 심어 가꾸는 밭' },
+      '산불': { type: '합성어', structure: '산(어근) + 불(어근)', meaning: '산에 난 불' },
+      '비바람': { type: '합성어', structure: '비(어근) + 바람(어근)', meaning: '비와 바람이 함께 몹시 침' },
+      '새해': { type: '합성어', structure: '새(어근) + 해(어근)', meaning: '새로 시작되는 해' },
+
+      // ===== 3. 파생어 (Derivative words: root + affix) =====
+      '알감자': { type: '파생어', structure: '알-(접두사: 작고 둥근) + 감자(어근)', meaning: '알이 잘고 작은 감자 (접두파생어)' },
+      '풋사과': { type: '파생어', structure: '풋-(접두사: 덜 익은) + 사과(어근)', meaning: '아직 덜 익은 사과 (접두파생어)' },
+      '덧신': { type: '파생어', structure: '덧-(접두사) + 신(어근)', meaning: '신발 위에 덧신는 신 (접두파생어)' },
+      '맨발': { type: '파생어', structure: '맨-(접두사) + 발(어근)', meaning: '양말이나 신을 신지 않은 발 (접두파생어)' },
+      '먹보': { type: '파생어', structure: '먹-(어근) + -보(접미사)', meaning: '음식을 몹시 탐내는 사람 (접미파생어)' },
+      '멋쟁이': { type: '파생어', structure: '멋(어근) + -쟁이(접미사)', meaning: '멋을 잘 부리는 사람 (접미파생어)' },
+      '장난꾸러기': { type: '파생어', structure: '장난(어근) + -꾸러기(접미사)', meaning: '장난이 몹시 심한 사람 (접미파생어)' },
+      '지우개': { type: '파생어', structure: '지우-(어근) + -개(접미사)', meaning: '글씨나 그림을 지우는 도구 (접미파생어)' },
+      '울보': { type: '파생어', structure: '울-(어근) + -보(접미사)', meaning: '잘 우는 아이나 사람 (접미파생어)' },
+      '헛소리': { type: '파생어', structure: '헛-(접두사) + 소리(어근)', meaning: '실속 없거나 조리 없는 엉뚱한 말 (접두파생어)' },
+      '군소리': { type: '파생어', structure: '군-(접두사) + 소리(어근)', meaning: '하지 않아도 될 쓸데없는 말 (접두파생어)' },
+      '날고기': { type: '파생어', structure: '날-(접두사) + 고기(어근)', meaning: '익히지 않은 생고기 (접두파생어)' },
+      '선생님': { type: '파생어', structure: '선생(어근) + -님(접미사)', meaning: '선생에 대한 존칭 (접미파생어)' },
+      '나무꾼': { type: '파생어', structure: '나무(어근) + -꾼(접미사)', meaning: '나무를 베는 일을 하는 사람 (접미파생어)' }
+    };
+
+    // Pre-curated classroom problem sets
+    const PRESETS = [
+      {
+        word: '알감자',
+        type: '파생어',
+        structure: '알-(접두사: 작고 둥근) + 감자(어근)',
+        meaning: '알이 잘고 작은 감자 (접두파생어)',
+        hint1: '이 단어는 하나의 어근에 접두사가 결합한 [파생어]입니다.',
+        hint2: '글자 수는 세 글자이며, 앞 글자는 "작고 동글동글한"을 뜻하는 접두사입니다.',
+        hint3: '휴게소 간식(버터구이)으로 유명하며, 땅속 덩이줄기 채소와 관련이 깊습니다.'
+      },
+      {
+        word: '풋사과',
+        type: '파생어',
+        structure: '풋-(접두사: 덜 익은, 처음의) + 사과(어근)',
+        meaning: '아직 덜 익은 푸른 사과 (접두파생어)',
+        hint1: '이 단어는 하나의 어근에 접사가 결합한 [파생어]입니다.',
+        hint2: '글자 수는 세 글자이며, 첫 글자는 "덜 익은, 처음 나온"을 뜻하는 접두사입니다.',
+        hint3: '과일의 한 종류와 관련이 있으며, 가을에 맛있게 익습니다.'
+      },
+      {
+        word: '돌다리',
+        type: '합성어',
+        structure: '돌(어근) + 다리(어근)',
+        meaning: '돌을 놓아 건너다닐 수 있게 만든 다리',
+        hint1: '이 단어는 실질적인 뜻을 가진 두 어근이 결합한 [합성어]입니다.',
+        hint2: '"두드려 보고 건너라"는 속담에 등장하는 물건입니다.',
+        hint3: '자연의 단단한 광물(돌)과 길을 이어주는 건널목이 결합했습니다.'
+      },
+      {
+        word: '하늘',
+        type: '단일어',
+        structure: '하늘(하나의 실질 어근)',
+        meaning: '지구 위로 푸르게 펼쳐진 공간',
+        hint1: '더 이상 쪼갤 수 없는 하나의 어근으로만 된 [단일어]입니다.',
+        hint2: '두 글자이며, 구름, 해, 달, 별이 머무는 곳입니다.',
+        hint3: '맑은 날에는 푸른색을 띠며, 높은 가을날을 상징합니다.'
+      },
+      {
+        word: '먹보',
+        type: '파생어',
+        structure: '먹-(동사 어근) + -보(접미사: 사람을 낮추거나 친근히 이르는 말)',
+        meaning: '음식을 몹시 탐내어 많이 먹는 사람',
+        hint1: '이 단어는 용언 어간 어근 뒤에 사람을 나타내는 접미사가 붙은 [파생어]입니다.',
+        hint2: '두 글자이며, "잠보, 울보, 털보"와 같은 접미사(-보)를 공유합니다.',
+        hint3: '맛있는 음식을 엄청나게 많이 먹는 사람을 가리킵니다.'
+      },
+      {
+        word: '밤낮',
+        type: '합성어',
+        structure: '밤(어근) + 낮(어근)',
+        meaning: '밤과 낮, 늘 계속해서 쉼 없이',
+        hint1: '두 어근이 대등한 자격으로 결합한 [합성어]입니다.',
+        hint2: '하루의 어두운 시간대와 밝은 시간대를 합친 두 글자 단어입니다.',
+        hint3: '"그는 밤낮으로 시험공부에 매달렸다"처럼 항상, 늘을 뜻하기도 합니다.'
+      },
+      {
+        word: '지우개',
+        type: '파생어',
+        structure: '지우-(동사 어간 어근) + -개(도구를 나타내는 접미사)',
+        meaning: '연필로 쓴 글씨를 문질러 지우는 학용품',
+        hint1: '동사 어근에 물건·도구를 만드는 접미사가 붙은 [파생어]입니다.',
+        hint2: '"날개, 깔개, 집게"처럼 동작의 도구를 나타내는 파생 명사입니다.',
+        hint3: '필통 속에 항상 들어있는 연필의 짝꿍 학용품입니다.'
+      }
+    ];
+
+    let currentQuiz = PRESETS[0];
+    let guessHistory = [];
+    let hintsRevealed = 0;
+    let isGameOver = false;
+    let sortMode = 'similarity'; // 'similarity' or 'recent'
+
+    // Fine-grained Semantic Taxonomy with weights (Hierarchy: Sub-category -> Category -> Domain)
+    const SEMANTIC_TAXONOMY = {
+      // 1. 구근류 / 감자류 (가장 정밀한 층위)
+      potato_tuber: {
+        weight: 42,
+        words: ['알감자', '감자', '고구마', '돼지감자', '통감자', '햇감자', '씨감자', '군고구마', '찐감자']
+      },
+      // 2. 뿌리채소 / 밭작물
+      root_crops: {
+        weight: 32,
+        words: ['알감자', '감자', '고구마', '당근', '양파', '무', '토란', '우엉', '마', '생강', '도라지']
+      },
+      // 3. 채소 / 농작물 전반
+      vegetables: {
+        weight: 24,
+        words: ['배추', '상추', '시금치', '오이', '호박', '고추', '마늘', '파', '토마토', '가지', '옥수수', '콩', '팥', '작물', '채소', '야채', '농사', '밭']
+      },
+      // 4. 과일 / 열매류
+      fruits: {
+        weight: 22,
+        words: ['사과', '풋사과', '배', '포도', '복숭아', '수박', '참외', '딸기', '바나나', '귤', '감', '개살구', '살구', '열매', '과일', '능금']
+      },
+      // 5. 음식 / 요리 / 식재료
+      food_dining: {
+        weight: 18,
+        words: ['밥', '빵', '국', '찌개', '반찬', '떡', '고기', '날고기', '음식', '식사', '간식', '요리', '맛', '먹보', '배고픔']
+      },
+      // 6. 자연 / 지형 / 날씨
+      nature_weather: {
+        weight: 16,
+        words: ['하늘', '바다', '나무', '구름', '바람', '별', '달', '해', '물', '불', '땅', '꽃', '풀', '산', '강', '비', '눈', '봄비', '물방울', '꽃밭', '산불', '비바람', '돌다리', '돌', '다리', '바위', '흙']
+      },
+      // 7. 인체 / 신체 부위
+      body_parts: {
+        weight: 16,
+        words: ['사람', '손', '발', '눈', '귀', '코', '입', '머리', '팔', '다리', '맨발', '손발', '길눈', '눈물']
+      },
+      // 8. 인간 / 성격 / 인물
+      people_trait: {
+        weight: 15,
+        words: ['선생님', '나무꾼', '작은형', '멋쟁이', '장난꾸러기', '먹보', '울보', '잠보', '첫사랑', '친구', '어린이', '아이']
+      },
+      // 9. 사물 / 도구 / 일상용품
+      tools_objects: {
+        weight: 15,
+        words: ['책', '집', '길', '책가방', '덧신', '지우개', '접칼', '가방', '신발', '도구', '연필', '공책', '칼']
+      },
+      // 10. 시간 / 추상 관념
+      abstract_time: {
+        weight: 14,
+        words: ['밤낮', '앞뒤', '새해', '헛소리', '군소리', '참사랑', '시퍼렇다', '공부하다', '시간', '생각', '마음', '소리']
+      }
+    };
+
+    function analyzeMorphology(word) {
+      // 1. Direct hit in curriculum dictionary
+      if (MORPHOLOGY_DICT[word]) {
+        return MORPHOLOGY_DICT[word];
+      }
+
+      // 2. Comprehensive Affix Database for Derivative (파생어) Detection
+      const prefixList = [
+        { p: '알', meaning: '작고 둥근/속이 찬' },
+        { p: '풋', meaning: '덜 익은/처음의' },
+        { p: '맨', meaning: '다른 것이 없는/순수한' },
+        { p: '덧', meaning: '겹쳐 덧붙인' },
+        { p: '헛', meaning: '보람 없는/이유 없는' },
+        { p: '군', meaning: '쓸데없는/가외의' },
+        { p: '날', meaning: '익히지 않은/가공하지 않은' },
+        { p: '개', meaning: '질이 떨어지는/야생의' },
+        { p: '참', meaning: '진짜의/순수한' },
+        { p: '시', meaning: '매우 짙은' },
+        { p: '새', meaning: '매우 짙은/산뜻한' },
+        { p: '올', meaning: '철보다 이른' },
+        { p: '들', meaning: '야생의/거친' },
+        { p: '빗', meaning: '기울어진/어긋난' },
+        { p: '짓', meaning: '함부로/심하게' },
+        { p: '엿', meaning: '몰래' },
+        { p: '맏', meaning: '첫째의' }
+      ];
+
+      const suffixList = [
+        { s: '보', meaning: '그 특성이 많은 사람' },
+        { s: '쟁이', meaning: '그 속성을 지닌 사람' },
+        { s: '꾸러기', meaning: '그 일이 심한 사람' },
+        { s: '개', meaning: '도구/기구' },
+        { s: '꾼', meaning: '그 일을 전문으로 하는 사람' },
+        { s: '님', meaning: '존칭' },
+        { s: '질', meaning: '반복되는 행동/비하' },
+        { s: '거리', meaning: '소재/내용' },
+        { s: '치', meaning: '물건이나 사람을 낮춤' },
+        { s: '이', meaning: '사람이나 사물' },
+        { s: '적', meaning: '그러한 성질을 띰' },
+        { s: '롭다', meaning: '그러한 상태가 있음' },
+        { s: '답다', meaning: '성질에 걸맞음' },
+        { s: '스럽다', meaning: '그런 느낌이 있음' },
+        { s: '하다', meaning: '동사/형용사화 접미사' }
+      ];
+
+      // 접두 파생어 검사
+      for (const item of prefixList) {
+        if (word.startsWith(item.p) && word.length >= 2) {
+          const root = word.slice(item.p.length);
+          return {
+            type: '파생어',
+            structure: `${item.p}-(접두사) + ${root}(어근)`,
+            meaning: `접두사 '${item.p}-'(${item.meaning})와 어근 '${root}'의 결합`
+          };
+        }
+      }
+
+      // 접미 파생어 검사
+      for (const item of suffixList) {
+        if (word.endsWith(item.s) && word.length >= 2) {
+          const root = word.slice(0, word.length - item.s.length);
+          return {
+            type: '파생어',
+            structure: `${root}(어근) + -${item.s}(접미사)`,
+            meaning: `어근 '${root}'에 접미사 '-${item.s}'(${item.meaning})가 붙은 파생어`
+          };
+        }
+      }
+
+      // 3. Known Independent Morpheme / Root Database for Compound (합성어) Detection
+      const commonRoots = [
+        '돌', '다리', '밤', '낮', '눈', '물', '봄', '비', '바람', '손', '발', '꽃', '밭',
+        '길', '산', '불', '집', '나무', '책', '가방', '신', '새', '첫', '해', '사람', '땅',
+        '밥', '하늘', '바다', '앞', '뒤', '풀', '강', '칼', '배', '구름', '빛', '말', '글',
+        '감자', '고구마'
+      ];
+
+      // 2음절~4음절 단어 분할하여 어근 결합 여부 판별 (합성어)
+      for (let i = 1; i < word.length; i++) {
+        const left = word.slice(0, i);
+        const right = word.slice(i);
+        if (
+          (commonRoots.includes(left) || MORPHOLOGY_DICT[left]) &&
+          (commonRoots.includes(right) || MORPHOLOGY_DICT[right])
+        ) {
+          return {
+            type: '합성어',
+            structure: `${left}(어근) + ${right}(어근)`,
+            meaning: `실질 어근 '${left}'와 '${right}'가 결합한 합성어`
+          };
+        }
+      }
+
+      // 4음절 이상의 복합어: 합성어로 판정
+      if (word.length >= 4) {
+        const mid = Math.floor(word.length / 2);
+        const p1 = word.slice(0, mid);
+        const p2 = word.slice(mid);
+        return {
+          type: '합성어',
+          structure: `${p1}(어근) + ${p2}(어근)`,
+          meaning: `둘 이상의 실질 어근이 결합된 합성어`
+        };
+      }
+
+      // 기본 단어는 단일어로 분류
+      return {
+        type: '단일어',
+        structure: `${word}(하나의 실질 어근)`,
+        meaning: `하나의 어근으로만 이루어진 단일어`
+      };
+    }
+
+    function calculateSimilarity(inputWord, targetWord) {
+      // 1. Exact answer match: Always 100.0 (Rank 1)
+      if (inputWord === targetWord) {
+        return { similarity: 100.0, rank: 1 };
+      }
+
+      let score = 0;
+
+      // Extract root candidate from target and input (e.g., '알감자' -> root: '감자')
+      const targetAnalysis = analyzeMorphology(targetWord);
+      const inputAnalysis = analyzeMorphology(inputWord);
+
+      // Helper to extract clean root name if present
+      const getExtractedRoot = (word, morph) => {
+        if (morph.type === '파생어') {
+          // e.g., '알-(접두사) + 감자(어근)' -> '감자'
+          const m = morph.structure.match(/\+\s*([가-힣]+)\(어근\)/);
+          if (m && m[1]) return m[1];
+          const mPre = morph.structure.match(/([가-힣]+)\(어근\)\s*\+/);
+          if (mPre && mPre[1]) return mPre[1];
+        }
+        return word;
+      };
+
+      const targetRoot = getExtractedRoot(targetWord, targetAnalysis);
+      const inputRoot = getExtractedRoot(inputWord, inputAnalysis);
+
+      // ==============================================================
+      // Rule A: Perfect Root/Base Inclusion (최우선 어근 포함 규칙)
+      // 예: '알감자' vs '감자' -> 감자가 직접 포함되어 있으므로 최상위 점수 보장!
+      // ==============================================================
+      const isDirectRootMatch = (
+        inputWord === targetRoot || 
+        targetWord === inputRoot ||
+        (targetWord.includes(inputWord) && inputWord.length >= 2) ||
+        (inputWord.includes(targetWord) && targetWord.length >= 2)
+      );
+
+      if (isDirectRootMatch) {
+        // 어근이 동일한 핵심 단어는 최상위 점수(94 ~ 97점, 2~5위권) 보장!
+        score = 96.0;
+        if (inputAnalysis.type === targetAnalysis.type) score += 1.5;
+        score = Math.min(97.5, score);
+        return { similarity: parseFloat(score.toFixed(2)), rank: 2 };
+      }
+
+      // ==============================================================
+      // Rule B: Taxonomy & Semantic Similarity (다단계 의미 체계 점수)
+      // ==============================================================
+      let taxonomyMatchScore = 0;
+      let highestCategoryWeight = 0;
+
+      for (const [key, cat] of Object.entries(SEMANTIC_TAXONOMY)) {
+        const hasTarget = cat.words.includes(targetWord) || (targetRoot && cat.words.includes(targetRoot));
+        const hasInput = cat.words.includes(inputWord) || (inputRoot && cat.words.includes(inputRoot));
+
+        if (hasTarget && hasInput) {
+          taxonomyMatchScore += cat.weight;
+          if (cat.weight > highestCategoryWeight) {
+            highestCategoryWeight = cat.weight;
+          }
+        }
+      }
+
+      // 의미 범주가 일치하면 기본 점수 대폭 부여
+      if (taxonomyMatchScore > 0) {
+        // 예: 감자류/구근류에 속하는 '고구마'는 highestCategoryWeight(42) + root_crops(32) 등으로 80점대 획득
+        score += Math.min(68, taxonomyMatchScore * 1.15);
+      } else {
+        // 전혀 다른 범주일 경우 글자 유사도나 기본 탐색 점수 부여 (10~25점)
+        score += 12.0;
+      }
+
+      // ==============================================================
+      // Rule C: Word Formation Consistency (단어 형성 원리 일치 보너스)
+      // ==============================================================
+      if (inputAnalysis.type === targetAnalysis.type) {
+        score += 8.0; // 같은 단어 형성 원리 (단일어 / 합성어 / 파생어)
+      }
+
+      // ==============================================================
+      // Rule D: Character / Phonetic Overlap (부분 음절 일치)
+      // ==============================================================
+      const inputChars = [...inputWord];
+      const targetChars = [...targetWord];
+      const commonChars = inputChars.filter(c => targetChars.includes(c));
+      if (commonChars.length > 0) {
+        score += (commonChars.length / Math.max(inputWord.length, targetWord.length)) * 10.0;
+      }
+
+      // ==============================================================
+      // Rule E: Deterministic Jitter (미세 조정을 위한 결정론적 해시 0 ~ 2점)
+      // ==============================================================
+      let hash = 0;
+      const combined = inputWord + targetWord;
+      for (let i = 0; i < combined.length; i++) {
+        hash = (hash << 5) - hash + combined.charCodeAt(i);
+        hash |= 0;
+      }
+      const fineJitter = (Math.abs(hash) % 20) / 10.0; // 0.0 ~ 2.0 미세 오차
+      score += fineJitter;
+
+      // 점수 범위 보정: 정답이 아니면 최대 91.5점, 최소 4.5점
+      score = Math.min(91.5, Math.max(4.5, score));
+      score = parseFloat(score.toFixed(2));
+
+      // 순위 산출
+      let rank = null;
+      if (score >= 85.0) {
+        rank = Math.max(3, Math.round((100 - score) * 3));
+      } else if (score >= 65.0) {
+        rank = Math.round(50 + (85 - score) * 15);
+      } else if (score >= 45.0) {
+        rank = Math.round(350 + (65 - score) * 20);
+      }
+
+      return { similarity: score, rank: rank };
+    }
+
+    function handleGuess(event) {
+      event.preventDefault();
+      const inputEl = document.getElementById('wordInput');
+      const word = inputEl.value.trim();
+
+      if (!word) {
+        showNotice('단어를 입력해주세요!', 'warn');
+        return;
+      }
+
+      // Disallow non-korean
+      const hangulRegex = /^[가-힣]+$/;
+      if (!hangulRegex.test(word)) {
+        showNotice('한글 단어(공백 및 특수문자 제외)만 입력할 수 있습니다.', 'warn');
+        return;
+      }
+
+      // Check if already guessed
+      const exists = guessHistory.find(g => g.word === word);
+      if (exists) {
+        showNotice(`'${word}'(은)는 이미 ${exists.attempt}번째에 시도한 단어입니다. (유사도: ${exists.similarity}점)`, 'info');
+        inputEl.select();
+        return;
+      }
+
+      // Calculate similarity
+      const simData = calculateSimilarity(word, currentQuiz.word);
+      const morphAnalysis = analyzeMorphology(word);
+
+      const guessObj = {
+        attempt: guessHistory.length + 1,
+        word: word,
+        similarity: simData.similarity,
+        rank: simData.rank,
+        type: morphAnalysis.type,
+        structure: morphAnalysis.structure,
+        meaning: morphAnalysis.meaning,
+        timestamp: Date.now()
+      };
+
+      guessHistory.push(guessObj);
+      inputEl.value = '';
+      hideNotice();
+
+      // Update UI statistics
+      updateStats();
+      renderTable();
+
+      // Check win condition
+      if (word === currentQuiz.word) {
+        isGameOver = true;
+        celebrateWin();
+      }
+    }
+
+    function showNotice(msg, type = 'info') {
+      const area = document.getElementById('noticeArea');
+      area.classList.remove('hidden', 'bg-amber-50', 'text-amber-800', 'border-amber-200', 'bg-red-50', 'text-red-800', 'border-red-200', 'bg-indigo-50', 'text-indigo-800', 'border-indigo-200');
+
+      if (type === 'warn') {
+        area.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
+        area.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-600"></i><span>${msg}</span>`;
+      } else {
+        area.classList.add('bg-indigo-50', 'text-indigo-800', 'border', 'border-indigo-200');
+        area.innerHTML = `<i class="fa-solid fa-circle-info text-indigo-600"></i><span>${msg}</span>`;
+      }
+    }
+
+    function hideNotice() {
+      document.getElementById('noticeArea').classList.add('hidden');
+    }
+
+    function updateStats() {
+      document.getElementById('tryCount').textContent = `${guessHistory.length}회`;
+      document.getElementById('tableCount').textContent = `${guessHistory.length}건`;
+
+      if (guessHistory.length > 0) {
+        const maxSim = Math.max(...guessHistory.map(g => g.similarity));
+        document.getElementById('maxSim').textContent = maxSim.toFixed(2);
+      } else {
+        document.getElementById('maxSim').textContent = '0.00';
+      }
+    }
+
+    function renderTable() {
+      const emptyState = document.getElementById('emptyState');
+      const tableWrapper = document.getElementById('resultsTableWrapper');
+      const tbody = document.getElementById('resultsBody');
+
+      if (guessHistory.length === 0) {
+        emptyState.classList.remove('hidden');
+        tableWrapper.classList.add('hidden');
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+      tableWrapper.classList.remove('hidden');
+
+      // Sorting
+      let displayList = [...guessHistory];
+      if (sortMode === 'similarity') {
+        displayList.sort((a, b) => b.similarity - a.similarity);
+      } else {
+        displayList.sort((a, b) => b.attempt - a.attempt);
+      }
+
+      tbody.innerHTML = displayList.map(item => {
+        // Thermometer color based on similarity
+        let barColor = 'bg-slate-300';
+        let textColor = 'text-slate-600';
+        let flameIcon = '';
+
+        if (item.similarity >= 95) {
+          barColor = 'bg-emerald-500';
+          textColor = 'text-emerald-600 font-extrabold';
+          flameIcon = '<i class="fa-solid fa-crown text-amber-500 mr-1"></i>';
+        } else if (item.similarity >= 70) {
+          barColor = 'bg-rose-500';
+          textColor = 'text-rose-600 font-bold';
+          flameIcon = '<i class="fa-solid fa-fire text-rose-500 mr-1 animate-bounce"></i>';
+        } else if (item.similarity >= 50) {
+          barColor = 'bg-amber-500';
+          textColor = 'text-amber-600 font-semibold';
+          flameIcon = '<i class="fa-solid fa-temperature-high text-amber-500 mr-1"></i>';
+        } else if (item.similarity >= 30) {
+          barColor = 'bg-blue-400';
+          textColor = 'text-blue-600';
+        }
+
+        // Tag style according to Word Formation Type
+        let typeBadgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+        if (item.type === '단일어') {
+          typeBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        } else if (item.type === '합성어') {
+          typeBadgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+        } else if (item.type === '파생어') {
+          typeBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+        }
+
+        const rankBadge = item.rank 
+          ? `<span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">#${item.rank}위</span>`
+          : `<span class="text-slate-400 text-[11px]">-</span>`;
+
+        return `
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            <td class="py-3 px-3 text-center text-slate-400 font-mono text-xs">${item.attempt}</td>
+            <td class="py-3 px-4">
+              <div class="flex items-center">
+                ${flameIcon}
+                <span class="font-bold text-slate-900 text-sm tracking-tight">${item.word}</span>
+              </div>
+            </td>
+            <td class="py-3 px-4">
+              <div class="space-y-1">
+                <div class="flex justify-between items-center text-xs">
+                  <span class="${textColor}">${item.similarity.toFixed(2)}</span>
+                  <span class="text-[10px] text-slate-400">/ 100</span>
+                </div>
+                <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+                  <div class="${barColor} h-2 rounded-full transition-all duration-500" style="width: ${Math.min(100, Math.max(4, item.similarity))}%"></div>
+                </div>
+              </div>
+            </td>
+            <td class="py-3 px-3 text-center">${rankBadge}</td>
+            <td class="py-3 px-4">
+              <div class="text-[11px] font-semibold text-slate-700">${item.structure}</div>
+              <div class="text-[10px] text-slate-400 truncate max-w-[180px]" title="${item.meaning}">${item.meaning}</div>
+            </td>
+            <td class="py-3 px-3 text-center">
+              <span class="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${typeBadgeClass}">
+                ${item.type}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setSortMode(mode) {
+      sortMode = mode;
+      const simBtn = document.getElementById('sortSimBtn');
+      const recBtn = document.getElementById('sortRecentBtn');
+
+      if (mode === 'similarity') {
+        simBtn.className = 'px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold border border-indigo-200';
+        recBtn.className = 'px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200';
+      } else {
+        recBtn.className = 'px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 font-bold border border-indigo-200';
+        simBtn.className = 'px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 font-medium hover:bg-slate-200';
+      }
+      renderTable();
+    }
+
+    function requestHint() {
+      if (hintsRevealed >= 3) {
+        showNotice('준비된 모든 문법 힌트를 이미 확인했습니다!', 'info');
+        return;
+      }
+
+      hintsRevealed++;
+      document.getElementById('hintCountBadge').textContent = `${hintsRevealed}/3`;
+
+      const card = document.getElementById('hintCardContainer');
+      const content = document.getElementById('hintCardContent');
+      card.classList.remove('hidden');
+
+      let hintText = '';
+      if (hintsRevealed === 1) {
+        hintText = currentQuiz.hint1 || `[단서 1] 오늘의 정답 단어는 <strong>${currentQuiz.type}</strong>에 해당합니다!`;
+      } else if (hintsRevealed === 2) {
+        hintText = currentQuiz.hint2 || `[단서 2] 글자 수는 <strong>${currentQuiz.word.length}글자</strong>입니다.`;
+      } else if (hintsRevealed === 3) {
+        hintText = currentQuiz.hint3 || `[단서 3] 의미적 힌트: ${currentQuiz.meaning}`;
+      }
+
+      const item = document.createElement('div');
+      item.className = 'p-2.5 bg-white/80 rounded-xl border border-amber-200/60 shadow-xs flex items-center gap-2';
+      item.innerHTML = `<span class="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-bold shrink-0">${hintsRevealed}</span> <span>${hintText}</span>`;
+      content.appendChild(item);
+    }
+
+    function closeHintCard() {
+      document.getElementById('hintCardContainer').classList.add('hidden');
+    }
+
+    function celebrateWin() {
+      document.getElementById('statusBadge').className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1';
+      document.getElementById('statusBadge').innerHTML = '<i class="fa-solid fa-check text-[10px]"></i> 정답 완료!';
+
+      document.getElementById('winTryCount').textContent = guessHistory.length;
+      document.getElementById('winWordText').textContent = currentQuiz.word;
+
+      const typeBadge = document.getElementById('winWordTypeBadge');
+      typeBadge.textContent = currentQuiz.type;
+      if (currentQuiz.type === '단일어') {
+        typeBadge.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
+      } else if (currentQuiz.type === '합성어') {
+        typeBadge.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800';
+      } else {
+        typeBadge.className = 'text-xs font-bold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800';
+      }
+
+      document.getElementById('winWordMorpheme').textContent = currentQuiz.structure || analyzeMorphology(currentQuiz.word).structure;
+      document.getElementById('winWordMeaning').textContent = currentQuiz.meaning || '수업 시간에 함께 배운 단어 형성 원리를 다시 확인해보세요!';
+
+      document.getElementById('winModal').classList.remove('hidden');
+    }
+
+    function closeWinModal() {
+      document.getElementById('winModal').classList.add('hidden');
+    }
+
+    function shareMyRecord() {
+      const text = `[어휘맨틀 - 단어 형성의 원리 탐구]\n오늘의 단어: ${currentQuiz.word} (${currentQuiz.type})\n시도 횟수: ${guessHistory.length}회\n단어 구조: ${currentQuiz.structure}\n지금 함께 도전해보세요!`;
+      
+      const tempTextarea = document.createElement('textarea');
+      tempTextarea.value = text;
+      document.body.appendChild(tempTextarea);
+      tempTextarea.select();
+      try {
+        document.execCommand('copy');
+        showNotice('결과가 클립보드에 복사되었습니다! 학급 게시판이나 채팅창에 공유해보세요.', 'info');
+      } catch (e) {
+        showNotice('복사에 실패했습니다.', 'warn');
+      }
+      document.body.removeChild(tempTextarea);
+      closeWinModal();
+    }
+
+    function toggleTeacherMode() {
+      const panel = document.getElementById('teacherPanel');
+      panel.classList.toggle('hidden');
+      if (!panel.classList.contains('hidden')) {
+        panel.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+
+    function renderPresets() {
+      const container = document.getElementById('presetButtonsContainer');
+      container.innerHTML = PRESETS.map((p, idx) => {
+        let badgeColor = p.type === '단일어' ? 'text-emerald-300' : p.type === '합성어' ? 'text-blue-300' : 'text-amber-300';
+        return `
+          <button onclick="loadPreset(${idx})" class="w-full text-left p-2.5 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition flex items-center justify-between group">
+            <div>
+              <span class="font-bold text-xs text-white group-hover:text-amber-300">${p.word}</span>
+              <span class="text-[10px] ${badgeColor} font-semibold ml-1.5">[${p.type}]</span>
+            </div>
+            <i class="fa-solid fa-angle-right text-slate-500 text-xs group-hover:text-white"></i>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function loadPreset(index) {
+      const p = PRESETS[index];
+      currentQuiz = { ...p };
+      document.getElementById('cfgWord').value = p.word;
+      document.getElementById('cfgType').value = p.type;
+      document.getElementById('cfgMorpheme').value = p.structure;
+      document.getElementById('cfgMeaning').value = p.meaning;
+      document.getElementById('currentWordBadge').textContent = p.word;
+
+      resetGame();
+      showNotice(`수업 프리셋 단어 '${p.word}'(${p.type})이(가) 설정되었습니다!`, 'info');
+    }
+
+    function applyCustomWord() {
+      const word = document.getElementById('cfgWord').value.trim();
+      const type = document.getElementById('cfgType').value;
+      const morpheme = document.getElementById('cfgMorpheme').value.trim();
+      const meaning = document.getElementById('cfgMeaning').value.trim();
+
+      if (!word) {
+        showNotice('정답 단어를 입력해주세요.', 'warn');
+        return;
+      }
+
+      currentQuiz = {
+        word: word,
+        type: type,
+        structure: morpheme || `${word} (${type})`,
+        meaning: meaning || `${word}의 어휘적 의미`,
+        hint1: `[단서 1] 오늘의 정답 단어는 [${type}]입니다.`,
+        hint2: `[단서 2] 글자 수는 ${word.length}글자입니다.`,
+        hint3: `[단서 3] 의미: ${meaning || '수업 시간에 다룬 핵심 단어'}`
+      };
+
+      document.getElementById('currentWordBadge').textContent = word;
+      resetGame();
+      toggleTeacherMode();
+      showNotice(`새로운 정답 단어 '${word}'(${type})이(가) 활성화되었습니다!`, 'info');
+    }
+
+    function resetGame() {
+      guessHistory = [];
+      hintsRevealed = 0;
+      isGameOver = false;
+
+      document.getElementById('statusBadge').className = 'px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1';
+      document.getElementById('statusBadge').innerHTML = '<i class="fa-solid fa-spinner animate-spin text-[10px]"></i> 탐색 중';
+
+      document.getElementById('hintCountBadge').textContent = '0/3';
+      document.getElementById('hintCardContent').innerHTML = '';
+      document.getElementById('hintCardContainer').classList.add('hidden');
+
+      updateStats();
+      renderTable();
+    }
+
+    function copyStudentLink() {
+      // Encode current quiz data into URL hash
+      const payload = {
+        w: currentQuiz.word,
+        t: currentQuiz.type,
+        s: currentQuiz.structure,
+        m: currentQuiz.meaning
+      };
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      const shareUrl = `${window.location.origin}${window.location.pathname}#quiz=${encoded}`;
+
+      const temp = document.createElement('textarea');
+      temp.value = shareUrl;
+      document.body.appendChild(temp);
+      temp.select();
+      try {
+        document.execCommand('copy');
+        showNotice('학생 공유용 링크가 복사되었습니다! 학생들에게 전달하면 이 문제로 바로 시작됩니다.', 'info');
+      } catch (e) {
+        showNotice('공유 링크 생성 중 복사에 실패했습니다.', 'warn');
+      }
+      document.body.removeChild(temp);
+    }
+
+    function checkHashQuiz() {
+      const hash = window.location.hash;
+      if (hash && hash.includes('quiz=')) {
+        try {
+          const raw = hash.split('quiz=')[1];
+          const data = JSON.parse(decodeURIComponent(raw));
+          if (data && data.w) {
+            currentQuiz = {
+              word: data.w,
+              type: data.t || '합성어',
+              structure: data.s || `${data.w}`,
+              meaning: data.m || '',
+              hint1: `[단서 1] 오늘의 정답 단어는 [${data.t || '합성어'}]입니다.`,
+              hint2: `[단서 2] 글자 수는 ${data.w.length}글자입니다.`,
+              hint3: `[단서 3] 의미: ${data.m}`
+            };
+            document.getElementById('currentWordBadge').textContent = data.w;
+          }
+        } catch (err) {
+          console.error('Failed to parse URL puzzle hash', err);
+        }
+      }
+    }
+
+    function openRuleModal() {
+      document.getElementById('ruleModal').classList.remove('hidden');
+    }
+
+    function closeRuleModal() {
+      document.getElementById('ruleModal').classList.add('hidden');
+    }
+
+    window.onload = function() {
+      renderPresets();
+      checkHashQuiz();
+      updateStats();
+      renderTable();
+    };
+  </script>
+</body>
+</html>
